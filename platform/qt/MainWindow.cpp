@@ -1383,7 +1383,7 @@ void MainWindow::initGui( void )
 
     //Init session settings
     m_pModel = new SessionModel( this );
-    m_pProxyModel = new QSortFilterProxyModel( this );
+    m_pProxyModel = new SessionSortProxyModel( this );
     m_pProxyModel->setSourceModel( m_pModel );
     ui->listViewSession->setModel( m_pProxyModel );
     ui->tableViewSession->setModel( m_pProxyModel );

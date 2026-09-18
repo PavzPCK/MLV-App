@@ -12,6 +12,7 @@
 
 #include <QObject>
 #include <QAbstractItemModel>
+#include <QSortFilterProxyModel>
 #include "ClipInformation.h"
 
 class SessionModel : public QAbstractItemModel
@@ -41,6 +42,18 @@ private:
     QStringList m_headers;
     QList<ClipInformation*> m_dataBase;
     int m_activeRow;
+};
+
+//Proxy model which sorts the numeric columns of the session table by value instead of alphabetically
+class SessionSortProxyModel : public QSortFilterProxyModel
+{
+    Q_OBJECT
+
+public:
+    explicit SessionSortProxyModel( QObject *parent = nullptr ) : QSortFilterProxyModel( parent ) {}
+
+protected:
+    bool lessThan( const QModelIndex &left, const QModelIndex &right ) const override;
 };
 
 #endif // SESSIONMODEL_H

@@ -9,6 +9,8 @@
 #include <QColor>
 #include <QDebug>
 #include <QFile>
+#include <QRegularExpression>
+#include <limits>
 
 //Constructor
 SessionModel::SessionModel(QObject *parent) : QAbstractItemModel(parent), m_activeRow( -1 )
@@ -210,4 +212,71 @@ void SessionModel::writeMetadataToCsv(QString fileName)
         }
         data.close();
     }
+}
+
+//Columns of the session table which hold a numeric value and must be sorted by value
+static bool isNumericColumn( int column )
+{
+    switch( column )
+    {
+    case 6:  //Frames
+    case 7:  //Frame Rate
+    case 8:  //Focal Length
+    case 9:  //Focus Distance
+    case 10: //Shutter
+    case 11: //Aperture
+    case 12: //ISO
+    case 14: //Bit Depth
+    case 17: //Size
+    case 18: //Data Rate
+        return true;
+    default:
+        return false;
+    }
+}
+
+//Get the numeric value of a table entry, e.g. "105 mm" -> 105, "ƒ/11.3" -> 11.3, "Infinity" -> max
+static bool numericValue( const QString &text, double &value )
+{
+    if( text.trimmed().compare( QString( "Infinity" ), Qt::CaseInsensitive ) == 0 )
+    {
+        value = std::numeric_limits<double>::max();
+        return true;
+    }
+
+    QRegularExpression number( QString( "[0-9]+(?:[.,][0-9]+)?" ) );
+    QRegularExpressionMatchIterator it = number.globalMatch( text );
+    QString first, last;
+    while( it.hasNext() )
+    {
+        last = it.next().captured( 0 );
+        if( first.isEmpty() ) first = last;
+    }
+    if( first.isEmpty() ) return false;
+
+    //Shutter is shown as "1/50 s, 172 deg, 19983 µs" - sort it by the exposure time in µs
+    QString picked = text.contains( QChar( 0x00B5 ) ) ? last : first;
+    bool ok = false;
+    value = picked.replace( QChar( ',' ), QChar( '.' ) ).toDouble( &ok );
+    return ok;
+}
+
+//Compare two table entries: numeric columns by value, all others as text
+bool SessionSortProxyModel::lessThan( const QModelIndex &left, const QModelIndex &right ) const
+{
+    QString leftText = sourceModel()->data( left, Qt::DisplayRole ).toString();
+    QString rightText = sourceModel()->data( right, Qt::DisplayRole ).toString();
+
+    if( isNumericColumn( left.column() ) )
+    {
+        double leftValue = 0.0, rightValue = 0.0;
+        bool leftIsNumber = numericValue( leftText, leftValue );
+        bool rightIsNumber = numericValue( rightText, rightValue );
+
+        //Entries without a value ("-") are sorted to the beginning
+        if( leftIsNumber != rightIsNumber ) return rightIsNumber;
+        if( leftIsNumber && rightIsNumber && leftValue != rightValue ) return leftValue < rightValue;
+    }
+
+    return QString::localeAwareCompare( leftText, rightText ) < 0;
 }
